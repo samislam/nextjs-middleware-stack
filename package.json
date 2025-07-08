@@ -1,8 +1,8 @@
 {
-  "name": "",
+  "name": "nextjs-middleware-stack",
   "version": "1.0.0",
-  "description": "",
-  "author": "",
+  "description": "Composable route-based middleware for Next.js Middleware.",
+  "author": "Islam Yamor",
   "license": "Apache-2.0",
   "main": "dist/index.js",
   "types": "./dist/index.d.ts",
@@ -19,7 +19,18 @@
     "build": "tsx ./scripts/build.ts",
     "format": "tsx ./scripts/format.ts"
   },
-  "keywords": [],
+  "keywords": [
+    "nextjs",
+    "next",
+    "next.js",
+    "middleware",
+    "nextjs-middleware",
+    "next-middleware",
+    "next-middleware-stack",
+    "nextjs-stack",
+    "edge",
+    "nextjs-edge"
+  ],
   "devDependencies": {
     "@clscripts/barrelsby": "^2.8.1",
     "@clscripts/chokidar-cli": "^4.0.3",
@@ -59,5 +70,9 @@
     "tsx": "^4.20.3",
     "typescript-eslint": "^8.36.0",
     "typescript-transform-paths": "^3.5.5"
+  },
+  "dependencies": {
+    "compare-path": "^1.2.0",
+    "next": "^15.3.5"
   }
 }
