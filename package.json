@@ -72,7 +72,6 @@
     "typescript-transform-paths": "^3.5.5"
   },
   "dependencies": {
-    "compare-path": "^1.2.0",
-    "next": "^15.3.5"
+    "compare-path": "^1.2.0"
   }
 }

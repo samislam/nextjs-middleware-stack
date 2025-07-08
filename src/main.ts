@@ -1,13 +1,13 @@
 import { comparePath } from 'compare-path'
-import { NextRequest, NextResponse } from 'next/server'
 
-export type MiddlewareHandler = (
-  req: NextRequest
-) => NextResponse | Response | void | Promise<NextResponse | Response | void>
+export type MiddlewareHandler<T = Request, R = Response> = (req: T) => R | void | Promise<R | void>
 
-export function middlewareStack(routes: [string | RegExp, MiddlewareHandler][]) {
-  return async (req: NextRequest) => {
-    const url = req.nextUrl.pathname
+export function middlewareStack<T = Request, R = Response>(
+  routes: [string | RegExp, MiddlewareHandler<T, R>][]
+) {
+  return async (req: T): Promise<R | void> => {
+    type MaybeNextRequest = Request & { nextUrl?: { pathname: string } }
+    const url = (req as MaybeNextRequest).nextUrl?.pathname ?? (req as Request).url
 
     for (const [pattern, handler] of routes) {
       const isMatch =
