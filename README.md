@@ -1,118 +1,152 @@
-# 📦 TypeScript NPM Package Starter
+# 🚣️ `middlewareStack` – A Lightweight Middleware Router for Next.js
 
-A simple, fast, and modern template for anyone who wants to get up and running quickly writing TypeScript code for an npm package.
+A composable middleware stack for Next.js, supporting both `string`-based route patterns (with dynamic parameters and wildcards) and raw `RegExp` objects.
 
-If you’re creating an npm package — this starter is for you.
-It’s easy, opinionated, and comes with batteries included.
+Perfect for building layered request logic like authentication, logging, redirects, or feature flags in Next.js Edge or Node middlewares.
 
-> ⚡ **Note**: This starter uses [`pnpm`](https://pnpm.io) for package management.
-> Install it globally: `npm install -g pnpm`
+---
 
-# 🚀 Features
+## ✨ Features
 
-✅ TypeScript already configured — no hassle.
+- ✅ Simple pattern matching with support for:
+  - `:param` dynamic segments
+  - `**` wildcards (greedy)
+- ✅ `RegExp` support
+- ✅ Middleware short-circuiting (first matching response stops the stack)
+- ✅ Fully compatible with `next/server` and middleware in `apps/<name>/src/middleware.ts`
 
-✅ Prettier with a shared config: [@samislam/prettier-config](https://www.npmjs.com/package/@samislam/prettier-config).
+---
 
-✅ ESLint with sensible defaults.
+## 📦 Installation
 
-✅ .gitignore with useful defaults.
+```bash
+npm install compare-path
+```
 
-✅ package.json ready with scripts and sane defaults.
+---
 
-✅ Jest setup for unit testing.
+## 🧠 API
 
-✅ Uses [clscripts](https://github.com/CommandLineScripts) for clean, human-readable scripts — never memorize messy CLI chains again.
+### `middlewareStack(routes: [string | RegExp, MiddlewareHandler][])`
 
-# 📂 Included scripts
+Creates a Next.js-compatible middleware handler from an ordered list of route matchers and handler functions.
 
-Your package.json already has:
+#### Parameters:
 
-```json
-"scripts": {
-  "test": "jest",
-  "dev": "tsx ./scripts/dev.ts",
-  "lint": "tsx ./scripts/lint.ts",
-  "clean": "tsx ./scripts/clean.ts",
-  "build": "tsx ./scripts/build.ts",
-  "format": "tsx ./scripts/format.ts"
+- `routes`: An array of tuples where:
+  - The first item is a string pattern (e.g., `/users/:id`) or a RegExp.
+  - The second item is a handler function `(req: NextRequest) => Response | void | Promise<Response | void>`.
+
+#### Returns:
+
+- A function `(req: NextRequest) => Promise<Response | void>` – ready to be exported as default from `middleware.ts`.
+
+---
+
+## 📊 Supported Path Shapes
+
+You can use either `string`-based shape patterns (powered by `compare-path`) or `RegExp`.
+
+| Shape           | Matches Path Example        |
+| --------------- | --------------------------- |
+| `/user/:id`     | `/user/42`                  |
+| `/users/[id]`   | `/users/42` (same as above) |
+| `/docs/**/edit` | `/docs/api/v1/intro/edit`   |
+| `/a/:x/**/b/:y` | `/a/1/foo/bar/b/2`          |
+
+> Use RegExp when you need full regex control.
+
+---
+
+## 🧪 Example Usage (Auth Middleware)
+
+```ts
+// File: apps/example-app/src/middleware.ts
+import { NextResponse } from 'next/server'
+import { middlewareStack } from './utils/middleware-stack'
+import { validateAuthToken } from './utils/validate-jwt'
+
+export default middlewareStack([
+  [
+    /^\/dashboard\/.*/,
+    async (req) => {
+      const token = req.cookies.get('AUTH_TOKEN')?.value
+      const isValid = token && (await validateAuthToken(token))
+      if (!isValid) return NextResponse.redirect(new URL('/login', req.url))
+    },
+  ],
+  [
+    '/public/:page',
+    async (req) => {
+      console.log('Logging public page hit')
+    },
+  ],
+])
+```
+
+---
+
+## 🧪 Example with String Matching
+
+```ts
+// File: apps/example-app/src/middleware.ts
+import { middlewareStack } from './utils/middleware-stack'
+
+export default middlewareStack([
+  [
+    '/users/:id',
+    async (req) => {
+      // Handle specific user route
+    },
+  ],
+  [
+    'cars/:id',
+    async (req) => {
+      // Same as above with different route
+    },
+  ],
+  [
+    'hello/**',
+    async (req) => {
+      // Match anything starting with /hello/
+    },
+  ],
+])
+```
+
+---
+
+## 🧹 Integration in Next.js
+
+You must also export the `config` to ensure the middleware applies to your desired routes:
+
+```ts
+export const config = {
+  matcher: [
+    '/((?!_next|.*\\..*).*)', // Skip static assets
+    '/(api|trpc)(.*)', // Always include API routes
+  ],
+  runtime: 'nodejs',
 }
 ```
 
-## 📜 What each script does
+---
 
-Build your project - Generate barrels, compile your TypeScript, and show clear output:
+## 🧠 How It Works
 
-```bash
-pnpm build
-```
+Internally, `middlewareStack` will iterate through your routes and:
 
-Clean up `node_modules`, build output, and lockfiles:
+1. Compare the current path to each route (using `compare-path` or RegExp).
+2. If matched, execute the handler.
+3. If a `Response` is returned from the handler, it stops further execution and returns immediately.
 
-```bash
-pnpm clean
-```
+---
 
-Start your dev environment — runs barrels, type-checks, and transpiles fast with Nodemon + Concurrently:
+## 💡 Tips
 
-```bash
-pnpm dev
-```
-
-Format all your files using Prettier (ignores barrels):
-
-```bash
-pnpm format
-```
-
-Run type-checking and ESLint with clear status messages:
-
-```bash
-pnpm lint
-```
-
-Run your tests with Jest:
-
-```bash
-pnpm test
-```
-
-## ✅ Example flow
-
-```bash
-pnpm install
-pnpm dev
-# Make changes...
-pnpm format
-pnpm lint
-pnpm test
-pnpm build
-```
-
-# ✅ How to use
-
-1. Clone this template or copy the setup into your project.
-2. Install dependencies:
-
-```bash
-pnpm install
-```
-
-3. Run pnpm dev to start coding immediately.
-4. Use pnpm build when you’re ready to publish.
-
-# ✨ Why use this?
-
-✔️ Zero config TypeScript
-✔️ Prettier, ESLint, Jest, barrels — all wired up.
-✔️ clscripts make your CLI commands readable and repeatable.
-✔️ A real-world pattern you can extend — not a throwaway template.
-
-# 📢 License
-
-Apache-2.0 — do what you want, improve it, share it!
-
-Happy coding! 🚀✨
+- Middleware order matters! First match wins.
+- Use RegExp for more complex or legacy patterns.
+- Use string shapes for clean, readable routes with parameters.
 
 ---
 
