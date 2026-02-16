@@ -9,14 +9,16 @@ export function middlewareStack<T = Request, R = Response>(
 ) {
   return async (req: T): Promise<R | void> => {
     type MaybeNextRequest = Request & { nextUrl?: { pathname: string } }
-    const url = (req as MaybeNextRequest).nextUrl?.pathname ?? (req as Request).url
+    // const url = (req as MaybeNextRequest).nextUrl?.pathname ?? (req as Request).url
+    const currentUrl =
+      (req as MaybeNextRequest).nextUrl?.pathname ?? new URL((req as Request).url).pathname
 
     for (const [pattern, handler] of routes) {
       const isMatch =
         typeof pattern === 'string'
-          ? comparePath(pattern, url)
+          ? comparePath(pattern, currentUrl)
           : pattern instanceof RegExp
-          ? pattern.test(url)
+          ? pattern.test(currentUrl)
           : typeof pattern === 'function'
           ? await pattern(req as Request)
           : false
