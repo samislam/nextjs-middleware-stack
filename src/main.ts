@@ -11,7 +11,7 @@ export type Pattern = PatternFn | string | RegExp
  * Opaque/Branded "Pipe" type. Enforces that consumers MUST use pipe() (raw tuples won't
  * type-check).
  */
-declare const PIPE_BRAND: unique symbol
+const PIPE_BRAND: unique symbol = Symbol('PIPE_BRAND')
 
 export type Pipe<T extends Request = Request> = Readonly<{
   /** Brand */
@@ -48,7 +48,7 @@ export function middlewareStack<T extends Request = Request>(pipes: ReadonlyArra
 
       const isMatch =
         typeof pattern === 'string'
-          ? comparePath(pattern, pathname)
+          ? comparePath(pattern, pathname)[0]
           : pattern instanceof RegExp
           ? pattern.test(pathname)
           : typeof pattern === 'function'
