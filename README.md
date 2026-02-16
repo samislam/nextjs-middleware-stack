@@ -1,155 +1,186 @@
-# 🚣️ `middlewareStack` – A Lightweight Middleware Router for Next.js
+# 🚣 `middlewareStack` – A Composable Middleware Router for Next.js
 
-A composable middleware stack for Next.js, supporting `string`-based route patterns (with dynamic parameters and wildcards), raw `RegExp` objects, and custom sync/async predicate functions.
+A lightweight, composable middleware stack for Next.js that supports:
 
-Perfect for building layered request logic like authentication, logging, redirects, or feature flags in Next.js Edge or Node middlewares.
+- `string` route patterns (with dynamic parameters & wildcards)
+- Raw `RegExp`
+- Sync/async predicate functions
+- Strict `pipe()` composition API
+
+Perfect for authentication gates, logging, redirects, feature flags, i18n integration, and layered request logic in Next.js Edge or Node runtimes.
 
 ---
 
 ## ✨ Features
 
-- ✅ Simple pattern matching with support for:
+- ✅ Clean `pipe()` API (no tuple arrays)
+- ✅ String pattern matching via `compare-path`
+
   - `:param` dynamic segments
-  - `**` wildcards (greedy)
-- ✅ `RegExp` support
-- ✅ Custom `PatternFn` support: `(req) => boolean | Promise<boolean>`
-- ✅ Middleware short-circuiting (first matching response stops the stack)
-- ✅ Fully compatible with `next/server` and middleware in `apps/<name>/src/middleware.ts`
+  - `**` greedy wildcards
+
+- ✅ Native `RegExp` support
+- ✅ Sync or async predicate matching
+- ✅ Middleware short-circuiting
+- ✅ Edge & Node compatible
+- ✅ Type-safe enforcement of `pipe()` usage
 
 ---
 
 ## 📦 Installation
 
 ```bash
-npm install compare-path
+npm install nextjs-middleware-stack
 ```
 
 ---
 
 ## 🧠 API
 
-### `middlewareStack(routes: [Pattern, MiddlewareHandler][])`
+### `pipe(pattern, handler)`
 
-Creates a Next.js-compatible middleware handler from an ordered list of route matchers and handler functions.
+Creates a middleware pipe.
 
 ```ts
 export type PatternFn = (req: Request) => boolean | Promise<boolean>
 export type Pattern = PatternFn | string | RegExp
 ```
 
-#### Parameters:
+#### Parameters
 
-- `routes`: An array of tuples where:
-  - The first item is a `Pattern`:
-    - a string pattern (e.g., `/users/:id`)
-    - a `RegExp`
-    - a function/async function `(req) => boolean | Promise<boolean>`
-  - The second item is a handler function `(req: NextRequest) => Response | void | Promise<Response | void>`.
+- `pattern`
 
-#### Returns:
+  - string route shape (`/users/:id`)
+  - `RegExp`
+  - predicate function `(req) => boolean | Promise<boolean>`
 
-- A function `(req: NextRequest) => Promise<Response | void>` – ready to be exported as default from `middleware.ts`.
+- `handler`
+
+  - `(req: Request) => Response | void | Promise<Response | void>`
+
+> `pipe()` must be used. Raw `[pattern, handler]` tuples are not supported.
+
+---
+
+### `middlewareStack(pipes)`
+
+```ts
+middlewareStack(pipes: Pipe[])
+```
+
+Creates a Next.js-compatible middleware handler from an ordered list of `pipe()` calls.
+
+Returns:
+
+```ts
+;(req: Request) => Promise<Response | void>
+```
+
+Ready to export as default from `middleware.ts`.
+
+---
+
+## 🚀 Example (Authentication Middleware)
+
+```ts
+// apps/example-app/src/middleware.ts
+import { NextResponse } from 'next/server'
+import { middlewareStack, pipe } from 'nextjs-middleware-stack'
+import { validateAuthToken } from './utils/validate-jwt'
+
+export default middlewareStack([
+  pipe(/^\/dashboard\/.*/, async (req) => {
+    const token = req.cookies.get('AUTH_TOKEN')?.value
+    const isValid = token && (await validateAuthToken(token))
+
+    if (!isValid) {
+      return NextResponse.redirect(new URL('/login', req.url))
+    }
+  }),
+
+  pipe('/public/:page', async () => {
+    console.log('Public page hit')
+  }),
+
+  // Always run last
+  pipe(
+    () => true,
+    async () => {
+      console.log('Final middleware')
+    }
+  ),
+])
+```
 
 ---
 
 ## 📊 Supported Path Shapes
 
-You can use `string`-based shape patterns (powered by `compare-path`), `RegExp`, or predicate functions.
+String patterns are powered by `compare-path`.
 
-| Shape           | Matches Path Example        |
-| --------------- | --------------------------- |
-| `/user/:id`     | `/user/42`                  |
-| `/users/[id]`   | `/users/42` (same as above) |
-| `/docs/**/edit` | `/docs/api/v1/intro/edit`   |
-| `/a/:x/**/b/:y` | `/a/1/foo/bar/b/2`          |
+| Pattern         | Matches                   |
+| --------------- | ------------------------- |
+| `/user/:id`     | `/user/42`                |
+| `/users/[id]`   | `/users/42`               |
+| `/docs/**/edit` | `/docs/api/v1/intro/edit` |
+| `/a/:x/**/b/:y` | `/a/1/foo/bar/b/2`        |
 
-> Use RegExp when you need full regex control.
+Use `RegExp` for advanced matching.
 
-Use a predicate function when matching depends on request headers, cookies, or any custom runtime logic.
+Use a predicate function when matching depends on:
+
+- Cookies
+- Headers
+- Geo
+- Runtime conditions
+- Feature flags
 
 ---
 
-## 🧪 Example Usage (Auth Middleware)
+## 🧪 Example: String Matching
 
 ```ts
-// File: apps/example-app/src/middleware.ts
-import { NextResponse } from 'next/server'
-import { middlewareStack } from './utils/middleware-stack'
-import { validateAuthToken } from './utils/validate-jwt'
+import { middlewareStack, pipe } from 'nextjs-middleware-stack'
 
 export default middlewareStack([
-  [
-    /^\/dashboard\/.*/,
-    async (req) => {
-      const token = req.cookies.get('AUTH_TOKEN')?.value
-      const isValid = token && (await validateAuthToken(token))
-      if (!isValid) return NextResponse.redirect(new URL('/login', req.url))
-    },
-  ],
-  [
-    '/public/:page',
-    async (req) => {
-      console.log('Logging public page hit')
-    },
-  ],
+  pipe('/users/:id', async (req) => {
+    // Handle specific user route
+  }),
+
+  pipe('cars/:id', async () => {
+    // Match /cars/123
+  }),
+
+  pipe('hello/**', async () => {
+    // Match anything under /hello/
+  }),
 ])
 ```
 
 ---
 
-## 🧪 Example with String Matching
+## 🧪 Example: Predicate Function
 
 ```ts
-// File: apps/example-app/src/middleware.ts
-import { middlewareStack } from './utils/middleware-stack'
+import { middlewareStack, pipe } from 'nextjs-middleware-stack'
 
 export default middlewareStack([
-  [
-    '/users/:id',
+  pipe(
     async (req) => {
-      // Handle specific user route
-    },
-  ],
-  [
-    'cars/:id',
-    async (req) => {
-      // Same as above with different route
-    },
-  ],
-  [
-    'hello/**',
-    async (req) => {
-      // Match anything starting with /hello/
-    },
-  ],
-])
-```
-
----
-
-## 🧪 Example with `PatternFn`
-
-```ts
-import { middlewareStack } from './utils/middleware-stack'
-
-export default middlewareStack([
-  [
-    async (req) => {
-      // Match only API requests that include an auth header
       return req.url.includes('/api/') && !!req.headers.get('authorization')
     },
-    async (req) => {
-      // Custom logic for authenticated API requests
-    },
-  ],
+    async () => {
+      console.log('Authenticated API request')
+    }
+  ),
 ])
 ```
 
 ---
 
-## 🧹 Integration in Next.js
+## 🧹 Next.js Integration
 
-You must also export the `config` to ensure the middleware applies to your desired routes:
+You must also export `config` to control where middleware runs:
 
 ```ts
 export const config = {
@@ -157,7 +188,6 @@ export const config = {
     '/((?!_next|.*\\..*).*)', // Skip static assets
     '/(api|trpc)(.*)', // Always include API routes
   ],
-  runtime: 'nodejs',
 }
 ```
 
@@ -165,20 +195,50 @@ export const config = {
 
 ## 🧠 How It Works
 
-Internally, `middlewareStack` will iterate through your routes and:
+For each request:
 
-1. Compare the current request to each route pattern (`compare-path`, `RegExp`, or `PatternFn`).
-2. If matched, execute the handler.
-3. If a `Response` is returned from the handler, it stops further execution and returns immediately.
+1. Iterate through pipes in order.
+2. Evaluate the `pattern`.
+3. If matched → execute the `handler`.
+4. If the handler returns a `Response`, execution stops.
+5. Otherwise → continue to the next pipe.
+
+Middleware order matters.
 
 ---
 
 ## 💡 Tips
 
-- Middleware order matters! First match wins.
-- Use RegExp for more complex or legacy patterns.
-- Use string shapes for clean, readable routes with parameters.
-- Use `PatternFn` for request-aware matching (cookies, headers, auth, geo, etc).
+- Place authentication gates before public routes.
+- Put always-run middleware last:
+
+```ts
+pipe(() => true, someMiddleware)
+```
+
+- Prefer string shapes for readability.
+- Use predicate functions for request-aware logic.
+- Use `RegExp` only when necessary.
+
+---
+
+## ⚠️ Breaking Change (v2+)
+
+`middlewareStack` now accepts **only `pipe()` entries**.
+
+Old style:
+
+```ts
+middlewareStack([[/regex/, handler]])
+```
+
+is no longer supported.
+
+Migration:
+
+```ts
+middlewareStack([pipe(/regex/, handler)])
+```
 
 ---
 
