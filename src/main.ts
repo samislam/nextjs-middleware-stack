@@ -1,9 +1,11 @@
 import { comparePath } from 'compare-path'
 
 export type MiddlewareHandler<T = Request, R = Response> = (req: T) => R | void | Promise<R | void>
+export type PatternFn = (req: Request) => boolean | Promise<boolean>
+export type Pattern = PatternFn | string | RegExp
 
 export function middlewareStack<T = Request, R = Response>(
-  routes: [string | RegExp, MiddlewareHandler<T, R>][]
+  routes: [Pattern, MiddlewareHandler<T, R>][]
 ) {
   return async (req: T): Promise<R | void> => {
     type MaybeNextRequest = Request & { nextUrl?: { pathname: string } }
@@ -15,6 +17,8 @@ export function middlewareStack<T = Request, R = Response>(
           ? comparePath(pattern, url)
           : pattern instanceof RegExp
           ? pattern.test(url)
+          : typeof pattern === 'function'
+          ? await pattern(req as Request)
           : false
 
       if (isMatch) {
