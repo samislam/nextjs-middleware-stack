@@ -2,10 +2,10 @@ import { comparePath } from 'compare-path'
 
 /** A middleware handler that can short-circuit by returning a Response. */
 export type MiddlewareHandler<T = Request> = (req: T) => Response | void | Promise<Response | void>
-
-/** A pattern function can be sync or async. */
-export type PatternFn = (req: Request) => boolean | Promise<boolean>
-export type Pattern = PatternFn | string | RegExp
+/** A pattern function can be sync or async, and is generic over the request type. */
+export type PatternFn<T = Request> = (req: T) => boolean | Promise<boolean>
+/** A pattern can be a string, RegExp, or a predicate function over T. */
+export type Pattern<T = Request> = PatternFn<T> | string | RegExp
 
 /**
  * Opaque/Branded "Pipe" type. Enforces that consumers MUST use pipe() (raw tuples won't
@@ -14,15 +14,14 @@ export type Pattern = PatternFn | string | RegExp
 const PIPE_BRAND: unique symbol = Symbol('PIPE_BRAND')
 
 export type Pipe<T extends Request = Request> = Readonly<{
-  /** Brand */
   [PIPE_BRAND]: true
-  pattern: Pattern
+  pattern: Pattern<T>
   handler: MiddlewareHandler<T>
 }>
 
 /** Create a middleware pipe (pattern + handler). */
 export function pipe<T extends Request = Request>(
-  pattern: Pattern,
+  pattern: Pattern<T>,
   handler: MiddlewareHandler<T>
 ): Pipe<T> {
   return { pattern, handler, [PIPE_BRAND]: true } as Pipe<T>
@@ -52,7 +51,7 @@ export function middlewareStack<T extends Request = Request>(pipes: ReadonlyArra
           : pattern instanceof RegExp
           ? pattern.test(pathname)
           : typeof pattern === 'function'
-          ? await pattern(req as unknown as Request)
+          ? await pattern(req)
           : false
 
       if (isMatch) {
